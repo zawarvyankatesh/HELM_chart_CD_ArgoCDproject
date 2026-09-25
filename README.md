@@ -66,3 +66,45 @@ HPA controls the web and API replica counts. Redis is deliberately a single Pod 
 After publishing images, set `web.image.repository`, `web.image.tag`, `api.image.repository`, `api.image.tag`, and the corresponding Redis image values to the ECR URIs and tags. Set each application's `image.pullPolicy` to `IfNotPresent` and configure Kubernetes pull access for private ECR. Keep those values in this Git repository for Argo CD. Do not use mutable tags for repeatable GitOps releases.
 
 For the next phase, Argo CD will read this Git repository and use `charts/taskboard` as its Application source. Do not run `helm upgrade` and enable Argo CD automated sync on the same release at the same time; let Argo CD be the deployment owner after the handoff.
+
+## Move the release to Argo CD
+
+Argo CD reads this public Git repository, renders `charts/taskboard` using Helm, and applies the resulting Kubernetes objects. The bootstrap Application manifest is [`argocd/taskboard-application.yaml`](argocd/taskboard-application.yaml). It is kept outside the chart directory so it is not rendered as part of the Taskboard application.
+
+Install Argo CD into the current kind cluster using the [upstream instructions](https://argo-cd.readthedocs.io/en/stable/getting_started/):
+
+```bash
+kubectl config current-context
+kubectl create namespace argocd
+kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kubectl -n argocd get pods
+kubectl -n argocd rollout status deployment/argocd-server --timeout=300s
+kubectl -n argocd rollout status deployment/argocd-repo-server --timeout=300s
+```
+
+**Handoff:** You installed Taskboard using `helm upgrade --install` above. Stop the Helm release before Argo CD takes over. The next command deletes its managed PVC and current tasks, which is acceptable for this lab; keep the namespace and your kind cluster:
+
+```bash
+helm uninstall taskboard --namespace taskboard
+kubectl -n taskboard get deployment,service,pvc
+kubectl apply -f argocd/taskboard-application.yaml
+kubectl -n argocd get applications
+kubectl -n taskboard get deployments,pods,svc,hpa,pvc
+```
+
+The Application watches `main` and automatically syncs chart changes. `selfHeal` restores changes made manually in the cluster. Automatic pruning is disabled so deleting a chart resource from Git does not automatically delete its PVC or other live resources. The Application manifest itself is applied once with `kubectl`; edits to that manifest need another `kubectl apply`, as it is outside the chart's watched path.
+
+See the Argo CD UI locally (leave the port-forward running; use another port if 8080 is occupied by the web port-forward):
+
+```bash
+kubectl -n argocd port-forward service/argocd-server 8081:443
+```
+
+Open <https://localhost:8081>, accept the local certificate warning, and log in as `admin`. Get the initial password in another terminal without adding it to Git:
+
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath='{.data.password}' | base64 -d
+```
+
+The Argo CD UI should show Taskboard as `Synced` and `Healthy`. Verify the app itself with `kubectl -n taskboard port-forward service/taskboard-web 8080:80` and <http://localhost:8080>. For an exercise, change `web.autoscaling.maxReplicas` in `charts/taskboard/values.yaml`, commit and push to `main`, and watch Argo CD update `kubectl -n taskboard get hpa taskboard-web`. Then restore the value in Git. The local `:local` images still need to be present in every kind node that can schedule the Pods; pushing a new image to ECR comes later.
