@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: taskboard
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/zawarvyankatesh/HELM_chart_CD_ArgoCDproject.git
+    targetRevision: main
+    path: charts/taskboard
+    helm:
+      releaseName: taskboard
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: taskboard
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: false
+    syncOptions:
+      - CreateNamespace=true
