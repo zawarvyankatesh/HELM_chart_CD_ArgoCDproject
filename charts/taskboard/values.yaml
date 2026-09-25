@@ -1,0 +1,52 @@
+# The web image's Nginx configuration expects these two Service names.
+web:
+  image:
+    repository: taskboard-web
+    tag: local
+    pullPolicy: Never
+  replicas: 1
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    requests: {cpu: 10m, memory: 24Mi}
+    limits: {cpu: 100m, memory: 96Mi}
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 75
+
+api:
+  image:
+    repository: taskboard-api
+    tag: local
+    pullPolicy: Never
+  replicas: 1
+  service:
+    port: 8000
+  resources:
+    requests: {cpu: 25m, memory: 64Mi}
+    limits: {cpu: 300m, memory: 256Mi}
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 75
+
+redis:
+  image:
+    repository: redis
+    tag: 7-alpine
+    pullPolicy: IfNotPresent
+  service:
+    port: 6379
+  resources:
+    requests: {cpu: 25m, memory: 48Mi}
+    limits: {cpu: 200m, memory: 128Mi}
+  persistence:
+    enabled: true
+    size: 1Gi
+    accessModes: [ReadWriteOnce]
+    # Leave unset to use the cluster's default StorageClass.
+    storageClassName: null

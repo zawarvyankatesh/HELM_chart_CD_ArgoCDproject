@@ -1,0 +1,69 @@
+{{- if .Values.redis.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: taskboard-redis-data
+  labels: {app.kubernetes.io/name: taskboard-redis, app.kubernetes.io/part-of: taskboard}
+spec:
+  accessModes:
+    {{- toYaml .Values.redis.persistence.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.redis.persistence.size }}
+  {{- with .Values.redis.persistence.storageClassName }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+---
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taskboard-redis
+  labels: {app.kubernetes.io/name: taskboard-redis, app.kubernetes.io/part-of: taskboard}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: taskboard-redis}
+  template:
+    metadata:
+      labels: {app: taskboard-redis, app.kubernetes.io/part-of: taskboard}
+    spec:
+      containers:
+        - name: redis
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+          command: [redis-server, --appendonly, "yes", --appendfsync, everysec]
+          ports:
+            - {name: redis, containerPort: 6379}
+          volumeMounts:
+            - {name: redis-data, mountPath: /data}
+          readinessProbe:
+            exec:
+              command: [redis-cli, ping]
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: [redis-cli, ping]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.redis.resources | nindent 12 }}
+      volumes:
+        - name: redis-data
+          {{- if .Values.redis.persistence.enabled }}
+          persistentVolumeClaim: {claimName: taskboard-redis-data}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: taskboard-redis
+  labels: {app.kubernetes.io/name: taskboard-redis, app.kubernetes.io/part-of: taskboard}
+spec:
+  selector: {app: taskboard-redis}
+  ports:
+    - {name: redis, port: {{ .Values.redis.service.port }}, targetPort: redis}

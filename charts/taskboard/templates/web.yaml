@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taskboard-web
+  labels: {app.kubernetes.io/name: taskboard-web, app.kubernetes.io/part-of: taskboard}
+spec:
+  {{- if not .Values.web.autoscaling.enabled }}
+  replicas: {{ .Values.web.replicas }}
+  {{- end }}
+  selector:
+    matchLabels: {app: taskboard-web}
+  template:
+    metadata:
+      labels: {app: taskboard-web, app.kubernetes.io/part-of: taskboard}
+    spec:
+      containers:
+        - name: web
+          image: "{{ .Values.web.image.repository }}:{{ .Values.web.image.tag }}"
+          imagePullPolicy: {{ .Values.web.image.pullPolicy }}
+          ports:
+            - {name: http, containerPort: 80}
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: taskboard-web
+  labels: {app.kubernetes.io/name: taskboard-web, app.kubernetes.io/part-of: taskboard}
+spec:
+  type: {{ .Values.web.service.type }}
+  selector: {app: taskboard-web}
+  ports:
+    - {name: http, port: {{ .Values.web.service.port }}, targetPort: http}

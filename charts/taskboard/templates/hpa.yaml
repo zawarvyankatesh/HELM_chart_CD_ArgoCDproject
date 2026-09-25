@@ -1,0 +1,37 @@
+{{- if .Values.web.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: taskboard-web
+  labels: {app.kubernetes.io/name: taskboard-web, app.kubernetes.io/part-of: taskboard}
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: taskboard-web}
+  minReplicas: {{ .Values.web.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.web.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.web.autoscaling.targetCPUUtilizationPercentage }}
+---
+{{- end }}
+{{- if .Values.api.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: taskboard-api
+  labels: {app.kubernetes.io/name: taskboard-api, app.kubernetes.io/part-of: taskboard}
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: taskboard-api}
+  minReplicas: {{ .Values.api.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.api.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.api.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
