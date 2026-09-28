@@ -13,6 +13,10 @@ spec:
     metadata:
       labels: {app: taskboard-web, app.kubernetes.io/part-of: taskboard}
     spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: web
           image: "{{ .Values.web.image.repository }}:{{ .Values.web.image.tag }}"

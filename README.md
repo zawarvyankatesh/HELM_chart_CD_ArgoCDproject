@@ -63,7 +63,29 @@ HPA controls the web and API replica counts. Redis is deliberately a single Pod 
 
 ## Later: replace local images with ECR images
 
-After publishing images, set `web.image.repository`, `web.image.tag`, `api.image.repository`, `api.image.tag`, and the corresponding Redis image values to the ECR URIs and tags. Set each application's `image.pullPolicy` to `IfNotPresent` and configure Kubernetes pull access for private ECR. Keep those values in this Git repository for Argo CD. Do not use mutable tags for repeatable GitOps releases.
+The CodeBuild stack publishes `taskboard-web` and `taskboard-api` with the first 12 characters of the built Git commit SHA. The mirrored `taskboard-redis` uses the tag `7-alpine`. Inspect a **successful** build and confirm both image tags exist before changing Git:
+
+```bash
+TASKBOARD_REGION=ap-south-1
+TASKBOARD_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+TASKBOARD_BUILD_ID=$(aws codebuild list-builds-for-project --project-name taskboard-build-and-publish --region "$TASKBOARD_REGION" --query 'ids[0]' --output text)
+aws codebuild batch-get-builds --ids "$TASKBOARD_BUILD_ID" --region "$TASKBOARD_REGION" --query 'builds[0].[buildStatus,resolvedSourceVersion]' --output text
+```
+
+Use the first 12 characters of `resolvedSourceVersion` as `IMAGE_TAG` and verify the `taskboard-web` and `taskboard-api` repositories both contain that exact tag. Before updating the Helm chart in your **kind** cluster, create a private ECR pull Secret in the `taskboard` namespace (keep the password out of Git):
+
+```bash
+TASKBOARD_REGISTRY="${TASKBOARD_ACCOUNT_ID}.dkr.ecr.${TASKBOARD_REGION}.amazonaws.com"
+kubectl -n taskboard create secret docker-registry ecr-pull \
+  --docker-server="$TASKBOARD_REGISTRY" \
+  --docker-username=AWS \
+  --docker-password="$(aws ecr get-login-password --region "$TASKBOARD_REGION")" \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+In `charts/taskboard/values.yaml`, set `imagePullSecrets: [{name: ecr-pull}]`, replace each `image.repository` with `${TASKBOARD_REGISTRY}/taskboard-web`, `/taskboard-api`, or `/taskboard-redis` (put the actual registry URI in the YAML, not the shell variable), and set web/API tags to `IMAGE_TAG`. Set their `pullPolicy` to `IfNotPresent`; set Redis's repository to the ECR URI and retain tag `7-alpine`. Then run `helm lint charts/taskboard`, commit, and push to `main`. Argo CD will deploy the new images without changing its Application resource.
+
+ECR login tokens expire after 12 hours. Refresh the kind Secret before it expires when doing further deployments. Later on EKS, arrange ECR pulls through node IAM permissions instead of managing this kind Secret. Redis's `7-alpine` tag is mutable; pin it by digest if you need reproducible deployments.
 
 For the next phase, Argo CD will read this Git repository and use `charts/taskboard` as its Application source. Do not run `helm upgrade` and enable Argo CD automated sync on the same release at the same time; let Argo CD be the deployment owner after the handoff.
 

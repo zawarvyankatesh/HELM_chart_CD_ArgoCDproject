@@ -29,6 +29,10 @@ spec:
     metadata:
       labels: {app: taskboard-redis, app.kubernetes.io/part-of: taskboard}
     spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: redis
           image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"

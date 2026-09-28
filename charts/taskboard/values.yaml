@@ -1,4 +1,7 @@
 # The web image's Nginx configuration expects these two Service names.
+# Reference a private-registry pull Secret in the taskboard namespace when using ECR.
+imagePullSecrets: []
+
 web:
   image:
     repository: taskboard-web
