@@ -1,12 +1,13 @@
 # The web image's Nginx configuration expects these two Service names.
 # Reference a private-registry pull Secret in the taskboard namespace when using ECR.
-imagePullSecrets: []
+imagePullSecrets: 
+-name: ecr-pull
 
 web:
   image:
-    repository: taskboard-web
-    tag: local
-    pullPolicy: Never
+    repository: 606075279047.dkr.ecr.ap-south-1.amazonaws.com/taskboard-web
+    tag: ec180a260ddf
+    pullPolicy: IfNotPresent
   replicas: 1
   service:
     type: ClusterIP
@@ -22,9 +23,9 @@ web:
 
 api:
   image:
-    repository: taskboard-api
-    tag: local
-    pullPolicy: Never
+    repository: 606075279047.dkr.ecr.ap-south-1.amazonaws.com/taskboard-api
+    tag: ec180a260ddf
+    pullPolicy: IfNotPresent
   replicas: 1
   service:
     port: 8000
@@ -39,7 +40,7 @@ api:
 
 redis:
   image:
-    repository: redis
+    repository: 606075279047.dkr.ecr.ap-south-1.amazonaws.com/taskboard-redis
     tag: 7-alpine
     pullPolicy: IfNotPresent
   service:
