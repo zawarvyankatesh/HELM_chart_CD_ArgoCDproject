@@ -6,7 +6,7 @@ imagePullSecrets:
 web:
   image:
     repository: 606075279047.dkr.ecr.ap-south-1.amazonaws.com/taskboard-web
-    tag: 33a34c585e9a
+    tag: 1aff8d4067ec
     pullPolicy: IfNotPresent
   replicas: 1
   service:
@@ -24,7 +24,7 @@ web:
 api:
   image:
     repository: 606075279047.dkr.ecr.ap-south-1.amazonaws.com/taskboard-api
-    tag: 33a34c585e9a
+    tag: 1aff8d4067ec
     pullPolicy: IfNotPresent
   replicas: 1
   service:
